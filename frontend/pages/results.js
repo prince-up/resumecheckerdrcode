@@ -34,9 +34,20 @@ export default function Results() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      await downloadResume();
+      // Store the optimized resume data
+      const resumeData = {
+        optimized_resume: analysisData.optimized_resume,
+        original_name: 'optimized_resume'
+      };
+      
+      // Store in session for API call
+      sessionStorage.setItem('resumeToDownload', JSON.stringify(resumeData));
+      
+      await downloadResume(analysisData.optimized_resume || analysisData);
+      setError('');
     } catch (err) {
-      setError(err.message || 'Failed to download resume');
+      console.error('Download error:', err);
+      setError(err.message || 'Failed to download resume. Please try again.');
     } finally {
       setDownloading(false);
     }
