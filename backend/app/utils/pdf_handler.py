@@ -12,13 +12,34 @@ class PDFHandler:
     
     @staticmethod
     def extract_text_from_pdf(file_content: bytes) -> str:
-        """Extract text from PDF file"""
+        """Extract text from PDF file with multiple fallbacks"""
         try:
             pdf_reader = PdfReader(io.BytesIO(file_content))
+            
+            # Check if PDF has pages
+            if len(pdf_reader.pages) == 0:
+                raise Exception("PDF has no pages")
+            
             text = ""
-            for page in pdf_reader.pages:
-                text += page.extract_text()
-            return text
+            extraction_chars = 0
+            
+            # Try extracting text from each page
+            for page_num, page in enumerate(pdf_reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+                        extraction_chars += len(page_text)
+                except Exception as page_error:
+                    # Log but continue with other pages
+                    pass
+            
+            # If very little text extracted, might be image-based PDF
+            if extraction_chars < 20:
+                raise Exception(f"PDF appears to be image-based or scanned (only {extraction_chars} characters extracted)")
+            
+            return text.strip()
+        
         except Exception as e:
             raise Exception(f"Error reading PDF: {str(e)}")
     

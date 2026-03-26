@@ -9,7 +9,7 @@ class AIResumeAnalyzer:
     
     def __init__(self):
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        self.model = genai.GenerativeModel('gemini-pro')
     
     def analyze_and_optimize(self, job_description: str, resume_text: str) -> dict:
         """
