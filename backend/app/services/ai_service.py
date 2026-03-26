@@ -27,41 +27,40 @@ JOB DESCRIPTION:
 RESUME:
 {resume_text}
 
-Provide a detailed analysis in JSON format with the following structure (return pure JSON only, no markdown):
+Return ONLY a valid JSON object (no markdown formatting, no code blocks) with this exact structure:
 {{
-    "overall_score": <integer 0-10>,
-    "skill_score": <integer 0-10>,
-    "keyword_score": <integer 0-10>,
-    "experience_score": <integer 0-10>,
-    "ats_compatibility_score": <integer 0-10>,
-    "matching_skills": [<list of skills from resume that match JD>],
-    "missing_keywords": [<list of important keywords from JD not in resume>],
-    "missing_skills": [<list of important skills from JD not mentioned in resume>],
-    "strengths": [<list of 3-4 resume strengths relative to the JD>],
-    "weaknesses": [<list of 3-4 resume weaknesses relative to the JD>],
-    "improvement_suggestions": [<list of 5-6 specific, actionable improvement suggestions>],
-    "ats_issues": [<list of ATS-related issues if any>],
-    "optimized_resume": <complete optimized resume text that is:
-        - More ATS-friendly
-        - Better keyword-matched to the JD
-        - Uses strong action verbs
-        - Maintains truthfulness
-        - Properly formatted with sections
-        - Highlighted matching experiences>
+    "overall_score": (number 0-10),
+    "skill_score": (number 0-10),
+    "keyword_score": (number 0-10),
+    "experience_score": (number 0-10),
+    "ats_compatibility_score": (number 0-10),
+    "matching_skills": (array of strings),
+    "missing_keywords": (array of strings),
+    "missing_skills": (array of strings),
+    "strengths": (array of 3-4 strings),
+    "weaknesses": (array of 3-4 strings),
+    "improvement_suggestions": (array of 5-6 strings),
+    "ats_issues": (array of strings),
+    "optimized_resume": (string with the complete optimized resume text that is ATS-friendly, keyword-matched, uses action verbs)
 }}
 
-Be critical but fair. Ensure scores reflect objective analysis. Return ONLY valid JSON."""
+Be critical but fair. Return ONLY the JSON object, nothing else."""
 
         try:
             response = self.model.generate_content(prompt)
-            
-            # Extract JSON from response
             response_text = response.text.strip()
             
-            # Try to find JSON in the response
+            # Remove markdown code blocks if present
+            if response_text.startswith('```'):
+                response_text = response_text.replace('```json', '').replace('```', '').strip()
+            
+            # Extract JSON from response (handle extra text before/after)
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
                 json_str = json_match.group()
+                # Fix any trailing issues
+                if not json_str.endswith('}'):
+                    json_str = json_str + '}'
                 analysis = json.loads(json_str)
             else:
                 analysis = json.loads(response_text)
