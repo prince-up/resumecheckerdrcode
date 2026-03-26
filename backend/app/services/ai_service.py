@@ -77,6 +77,10 @@ Be critical but fair. Ensure scores reflect objective analysis. Return ONLY vali
             analysis.setdefault('weaknesses', [])
             analysis.setdefault('strengths', [])
             analysis.setdefault('improvement_suggestions', [])
+            analysis.setdefault('ats_issues', [])
+            analysis.setdefault('missing_skills', [])
+            # CRITICAL: Ensure optimized_resume is always present
+            analysis.setdefault('optimized_resume', resume_text)
             
             # Ensure scores are integers
             for key in ['overall_score', 'skill_score', 'keyword_score', 'experience_score', 'ats_compatibility_score']:
@@ -106,7 +110,10 @@ Be critical but fair. Ensure scores reflect objective analysis. Return ONLY vali
                 'missing_keywords': [],
                 'weaknesses': ['Could not parse response'],
                 'strengths': ['Resume was analyzed'],
-                'improvement_suggestions': ['Try uploading as TXT format for better analysis']
+                'improvement_suggestions': ['Try uploading as TXT format for better analysis'],
+                'ats_issues': [],
+                'missing_skills': [],
+                'optimized_resume': resume_text  # Use original as fallback
             }
         except Exception as e:
             print(f"AI Analysis error: {str(e)}")
@@ -121,7 +128,10 @@ Be critical but fair. Ensure scores reflect objective analysis. Return ONLY vali
                 'missing_keywords': [],
                 'weaknesses': [f'Error: {str(e)}'],
                 'strengths': ['Analysis attempted'],
-                'improvement_suggestions': ['Try again with different format']
+                'improvement_suggestions': ['Try again with different format'],
+                'ats_issues': [],
+                'missing_skills': [],
+                'optimized_resume': resume_text  # Use original as fallback
             }
     
     def generate_optimized_resume(self, original_resume: str, job_description: str) -> str:

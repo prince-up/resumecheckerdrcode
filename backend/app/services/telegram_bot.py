@@ -251,7 +251,7 @@ Need more help? Contact support!
             # Format and send results
             results_message = self._format_analysis_results(analysis)
             
-            # Store optimized resume for later download
+            # Store optimized resume for download
             optimized = analysis.get('optimized_resume', resume_text)
             self.user_resumes[user_id] = optimized
             
@@ -261,23 +261,40 @@ Need more help? Contact support!
                     await update.message.reply_text(results_message[i:i+4000])
             else:
                 await update.message.reply_text(results_message)
+            
+            # Send download instruction as SEPARATE message with emphasis
+            await update.message.reply_text(
+                "━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "📥 **DOWNLOAD YOUR RESUME**\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "Send /download to get your optimized resume as PDF!\n\n"
+                "✨ The AI has improved:\n"
+                "• Keywords matching\n"
+                "• ATS compatibility\n"
+                "• Formatting\n\n"
+                "Ready? → Send /download"
+            )
                 
-            # Automatically generate and send the PDF right after analysis
+            # Try to automatically generate and send PDF
             try:
-                await update.message.reply_text("⏳ Generating your optimized resume PDF...")
                 pdf_content = pdf_handler.generate_resume_pdf(optimized)
                 
-                # Send PDF file to user
+                # Create BytesIO and send
                 file_obj = io.BytesIO(pdf_content)
-                file_obj.name = "optimized_resume.pdf"
                 
                 await update.message.reply_document(
                     document=file_obj,
-                    caption="✅ Here's your optimized resume!\n\nTips:\n• Tailor it for the job description\n• Keep it to 1-2 pages\n• Use keywords from job posting"
+                    filename="optimized_resume.pdf",
+                    caption="✅ Your optimized resume is ready!\n\n💾 Save this PDF or use /download anytime."
                 )
+                logger.info(f"PDF sent successfully to user {user_id}")
             except Exception as pdf_e:
-                logger.error(f"Error auto-generating PDF: {pdf_e}")
-                await update.message.reply_text("❌ Could not auto-generate PDF. Send /download to try again.")
+                logger.error(f"PDF auto-generation failed: {pdf_e}")
+                # If auto-PDF fails, just remind about manual download
+                await update.message.reply_text(
+                    f"⚠️ PDF auto-generation issue.\n\n"
+                    f"No problem! Just send /download and the bot will create your PDF."
+                )
 
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
