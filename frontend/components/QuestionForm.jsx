@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import api from '@/utils/api';
+import axios from 'axios';
 import styles from '@/styles/components/QuestionForm.module.css';
 
 const QuestionForm = ({ resumeText, jobDescription, isDisabled = false }) => {
@@ -26,7 +26,8 @@ const QuestionForm = ({ resumeText, jobDescription, isDisabled = false }) => {
     setLoading(true);
 
     try {
-      const result = await api.post('/api/ask/question', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const result = await axios.post(`${API_URL}/api/ask/question`, {
         resume_text: resumeText,
         job_description: jobDescription,
         question: question.trim(),
