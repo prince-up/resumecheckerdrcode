@@ -31,6 +31,8 @@ class TelegramResumeBot:
         self.user_jobs = {}  # Store job descriptions by user
         self.user_files = {}  # Store uploaded files by user
         self.user_resumes = {}  # Store optimized resumes by user
+        self.expecting_jd_file = {} # Store expectation of JD file upload state
+        self.user_job_files = {} # Store uploaded JD files
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -106,9 +108,10 @@ Need more help? Contact support!
 
         if not context.args:
             await update.message.reply_text(
-                "Please provide a job description.\n\n"
+                "Please provide a job description text.\n\n"
                 "Usage: /setjob <job description>\n"
-                "Example: /setjob Senior Python Developer with FastAPI experience"
+                "Example: /setjob Senior Python Developer\n\n"
+                "Or, to upload a JD file, use /setjobfile instead."
             )
             return
 
@@ -116,10 +119,16 @@ Need more help? Contact support!
         self.user_jobs[user_id] = job_desc
 
         await update.message.reply_text(
-            f"✅ Job description saved!\n\n"
+            f"✅ Job description text saved!\n\n"
             f"📝 Position: {job_desc}\n\n"
             f"Now upload your resume (PDF or text file) for analysis."
         )
+
+    async def set_job_file(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /setjobfile command"""
+        user_id = update.effective_user.id
+        self.expecting_jd_file[user_id] = True
+        await update.message.reply_text("📁 Please upload your Job Description (PDF or TXT file) now.")
 
     async def handle_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle file uploads"""
@@ -142,15 +151,28 @@ Need more help? Contact support!
         try:
             file = await update.message.document.get_file()
             file_content = await file.download_as_bytearray()
-            self.user_files[user_id] = {
-                'content': file_content,
-                'filename': document.file_name,
-                'mime_type': document.mime_type
-            }
-            await update.message.reply_text(
-                f"✅ Resume uploaded: {document.file_name}\n\n"
-                f"Send /analyze to get your analysis!"
-            )
+            
+            if self.expecting_jd_file.get(user_id):
+                self.user_job_files[user_id] = {
+                    'content': file_content,
+                    'filename': document.file_name,
+                    'mime_type': document.mime_type
+                }
+                self.expecting_jd_file[user_id] = False
+                await update.message.reply_text(
+                    f"✅ Job Description file uploaded: {document.file_name}\n\n"
+                    f"Now upload your resume file!"
+                )
+            else:
+                self.user_files[user_id] = {
+                    'content': file_content,
+                    'filename': document.file_name,
+                    'mime_type': document.mime_type
+                }
+                await update.message.reply_text(
+                    f"✅ Resume uploaded: {document.file_name}\n\n"
+                    f"Send /analyze to get your analysis!"
+                )
         except Exception as e:
             logger.error(f"Error downloading file: {e}")
             await update.message.reply_text("❌ Error uploading file. Please try again.")
@@ -162,15 +184,30 @@ Need more help? Contact support!
 
         try:
             # Check if job and resume are set
-            if user_id not in self.user_jobs:
-                await update.message.reply_text("❌ Please set a job description first using /setjob")
+            if user_id not in self.user_jobs and user_id not in self.user_job_files:
+                await update.message.reply_text("❌ Please set a job description first using /setjob or /setjobfile")
                 return
 
             if user_id not in self.user_files:
                 await update.message.reply_text("❌ Please upload your resume first!")
                 return
 
-            job_desc = self.user_jobs[user_id]
+            # Determine job description text
+            job_desc = ""
+            if user_id in self.user_job_files:
+                jd_file_data = self.user_job_files[user_id]
+                try:
+                    if 'pdf' in jd_file_data['mime_type'].lower():
+                        job_desc = pdf_handler.extract_text_from_pdf(jd_file_data['content'])
+                    else:
+                        job_desc = jd_file_data['content'].decode('utf-8', errors='ignore')
+                except Exception as e:
+                    logger.error(f"Error extracting JD text: {e}")
+                    await update.message.reply_text("❌ Error reading Job Description file.")
+                    return
+            else:
+                job_desc = self.user_jobs[user_id]
+
             file_data = self.user_files[user_id]
 
             # Extract text from file - handle both PDF and text
@@ -285,7 +322,7 @@ Need more help? Contact support!
                 await update.message.reply_document(
                     document=file_obj,
                     filename="optimized_resume.pdf",
-                    caption="✅ Your optimized resume is ready!\n\n💾 Save this PDF or use /download anytime."
+                    caption="Done , Now you can download the updated resume"
                 )
                 logger.info(f"PDF sent successfully to user {user_id}")
             except Exception as pdf_e:
@@ -330,7 +367,7 @@ Need more help? Contact support!
                 
                 await update.message.reply_document(
                     document=file_obj,
-                    caption="✅ Here's your optimized resume!\n\nTips:\n• Tailor it for the job description\n• Keep it to 1-2 pages\n• Use keywords from job posting"
+                    caption="Done , Now you can download the updated resume"
                 )
                 
                 await update.message.reply_text("✅ Resume downloaded successfully!")
@@ -432,6 +469,7 @@ Need more help? Contact support!
         self.app.add_handler(CommandHandler("start", self.start))
         self.app.add_handler(CommandHandler("help", self.help_command))
         self.app.add_handler(CommandHandler("setjob", self.set_job))
+        self.app.add_handler(CommandHandler("setjobfile", self.set_job_file))
         self.app.add_handler(CommandHandler("analyze", self.analyze_resume))
         self.app.add_handler(CommandHandler("download", self.download_resume))
         self.app.add_handler(MessageHandler(filters.Document.ALL, self.handle_document))
@@ -476,6 +514,7 @@ async def start_telegram_bot():
     app.add_handler(CommandHandler("start", bot.start))
     app.add_handler(CommandHandler("help", bot.help_command))
     app.add_handler(CommandHandler("setjob", bot.set_job))
+    app.add_handler(CommandHandler("setjobfile", bot.set_job_file))
     app.add_handler(CommandHandler("analyze", bot.analyze_resume))
     app.add_handler(CommandHandler("download", bot.download_resume))
     app.add_handler(MessageHandler(filters.Document.ALL, bot.handle_document))
