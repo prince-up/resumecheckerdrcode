@@ -34,20 +34,14 @@ export default function Results() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      // Store the optimized resume data
-      const resumeData = {
-        optimized_resume: analysisData.optimized_resume,
-        original_name: 'optimized_resume'
-      };
-      
-      // Store in session for API call
-      sessionStorage.setItem('resumeToDownload', JSON.stringify(resumeData));
-      
-      await downloadResume(analysisData.optimized_resume || analysisData);
+      // Pass the full analysis data to download function
+      await downloadResume(analysisData);
       setError('');
+      // Optional: Show success message by clearing after 3 seconds
+      setTimeout(() => {}, 2000);
     } catch (err) {
       console.error('Download error:', err);
-      setError(err.message || 'Failed to download resume. Please try again.');
+      setError(`Download failed: ${err.message || 'Unable to generate PDF'}`);
     } finally {
       setDownloading(false);
     }

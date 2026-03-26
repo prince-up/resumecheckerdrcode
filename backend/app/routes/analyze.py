@@ -1,9 +1,16 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from typing import Optional
 from app.services.ai_service import AIResumeAnalyzer
 from app.utils.pdf_handler import PDFHandler
 import io
 import json
+
+# Pydantic models
+class ResumeDownloadRequest(BaseModel):
+    resume_text: Optional[str] = None
+    overall_score: Optional[int] = None
 
 router = APIRouter()
 analyzer = AIResumeAnalyzer()
@@ -58,9 +65,33 @@ async def analyze_resume(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
+@router.post("/download")
+async def download_optimized_resume(request: ResumeDownloadRequest):
+    """Download the optimized resume as PDF"""
+    try:
+        resume_text = request.resume_text or last_generated_resume
+        
+        if not resume_text:
+            raise HTTPException(status_code=400, detail="No resume text provided")
+        
+        # Generate PDF
+        pdf_content = pdf_handler.generate_resume_pdf(resume_text)
+        
+        # Return PDF as bytes
+        return FileResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=optimized_resume.pdf"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
+
 @router.get("/download")
-async def download_optimized_resume():
-    """Download the last generated optimized resume as PDF"""
+async def download_optimized_resume_get():
+    """Download the last generated optimized resume as PDF (GET method)"""
     try:
         if not last_generated_resume:
             raise HTTPException(status_code=400, detail="No resume to download. Please analyze first.")

@@ -23,40 +23,40 @@ export const analyzeResume = async (formData) => {
 
 export const downloadResume = async (resumeData) => {
   try {
-    // If we have resume data directly, create PDF from it
-    if (resumeData && typeof resumeData === 'string') {
-      // Call backend to generate PDF
-      const response = await axios.post(`${API_URL}/download`, 
-        { resume_text: resumeData },
-        { responseType: 'blob' }
-      );
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'optimized_resume.pdf');
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } else {
-      // Try GET endpoint
-      const response = await axios.get(`${API_URL}/download`, {
-        responseType: 'blob',
-      });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'optimized_resume.pdf');
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+    let resumeText = null;
+    
+    // Extract resume text from different formats
+    if (typeof resumeData === 'string') {
+      resumeText = resumeData;
+    } else if (resumeData && typeof resumeData === 'object') {
+      resumeText = resumeData.optimized_resume || resumeData.resume_text;
     }
+    
+    if (!resumeText) {
+      throw new Error('No resume data available for download');
+    }
+    
+    // Call POST endpoint with resume text
+    const response = await axios.post(
+      `${API_URL}/download`,
+      { resume_text: resumeText },
+      { responseType: 'blob', headers: { 'Content-Type': 'application/json' } }
+    );
+    
+    // Create and trigger download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'optimized_resume.pdf');
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    return true;
   } catch (error) {
     console.error('Download error:', error);
-    throw new Error(error.response?.data?.detail || 'Failed to download resume');
+    throw new Error(error.response?.data?.detail || error.message || 'Failed to download resume');
   }
 };
 
