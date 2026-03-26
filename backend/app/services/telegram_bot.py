@@ -30,6 +30,7 @@ class TelegramResumeBot:
         self.app = None
         self.user_jobs = {}  # Store job descriptions by user
         self.user_files = {}  # Store uploaded files by user
+        self.user_resumes = {}  # Store optimized resumes by user
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -250,6 +251,11 @@ Need more help? Contact support!
             # Format and send results
             results_message = self._format_analysis_results(analysis)
             
+            # Store optimized resume for later download
+            if analysis.get('optimized_resume'):
+                self.user_resumes[user_id] = analysis['optimized_resume']
+                results_message += "\n\n📥 **Download Optimized Resume:**\nSend /download to download your optimized resume as PDF!"
+            
             # Split message if too long (Telegram limit is 4096 characters)
             if len(results_message) > 4000:
                 for i in range(0, len(results_message), 4000):
@@ -260,6 +266,55 @@ Need more help? Contact support!
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             await update.message.reply_text("❌ An unexpected error occurred. Please try again.")
+
+    async def download_resume(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Download the optimized resume as PDF"""
+        user_id = update.effective_user.id
+        await update.message.reply_text("⏳ Generating PDF... Please wait...")
+
+        try:
+            if user_id not in self.user_resumes:
+                await update.message.reply_text(
+                    "❌ No optimized resume found!\n\n"
+                    "Please:\n"
+                    "1. Send /setjob <job description>\n"
+                    "2. Upload your resume\n"
+                    "3. Send /analyze\n\n"
+                    "Then you can download!"
+                )
+                return
+
+            resume_text = self.user_resumes[user_id]
+            
+            # Generate PDF
+            try:
+                pdf_content = pdf_handler.generate_resume_pdf(resume_text)
+                
+                # Send PDF file to user
+                from telegram import Document
+                file_obj = io.BytesIO(pdf_content)
+                file_obj.name = "optimized_resume.pdf"
+                
+                await update.message.reply_document(
+                    document=file_obj,
+                    caption="✅ Here's your optimized resume!\n\nTips:\n• Tailor it for the job description\n• Keep it to 1-2 pages\n• Use keywords from job posting"
+                )
+                
+                await update.message.reply_text("✅ Resume downloaded successfully!")
+                
+            except Exception as e:
+                logger.error(f"Error generating PDF: {e}")
+                await update.message.reply_text(
+                    "❌ Error generating PDF.\n\n"
+                    "You can copy the optimized resume text and convert it manually using:\n"
+                    "• Google Docs\n"
+                    "• Microsoft Word\n"
+                    "• Online PDF converters"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error in download: {e}")
+            await update.message.reply_text("❌ Error downloading resume. Please try again.")
 
     def _format_analysis_results(self, analysis: dict) -> str:
         """Format analysis results for Telegram"""
@@ -343,6 +398,7 @@ Need more help? Contact support!
         self.app.add_handler(CommandHandler("help", self.help_command))
         self.app.add_handler(CommandHandler("setjob", self.set_job))
         self.app.add_handler(CommandHandler("analyze", self.analyze_resume))
+        self.app.add_handler(CommandHandler("download", self.download_resume))
         self.app.add_handler(MessageHandler(filters.Document.ALL, self.handle_document))
 
         # Error handler
@@ -386,6 +442,7 @@ async def start_telegram_bot():
     app.add_handler(CommandHandler("help", bot.help_command))
     app.add_handler(CommandHandler("setjob", bot.set_job))
     app.add_handler(CommandHandler("analyze", bot.analyze_resume))
+    app.add_handler(CommandHandler("download", bot.download_resume))
     app.add_handler(MessageHandler(filters.Document.ALL, bot.handle_document))
     app.add_error_handler(bot._error_handler)
     

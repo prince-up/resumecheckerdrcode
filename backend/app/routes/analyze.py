@@ -1,10 +1,17 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import Optional
 from app.services.ai_service import AIResumeAnalyzer
 from app.utils.pdf_handler import PDFHandler
 from pydantic import BaseModel
 import io
 import json
+
+# Pydantic models
+class ResumeDownloadRequest(BaseModel):
+    resume_text: Optional[str] = None
+    overall_score: Optional[int] = None
 
 router = APIRouter()
 analyzer = AIResumeAnalyzer()
@@ -59,21 +66,21 @@ async def analyze_resume(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
-class DownloadRequest(BaseModel):
-    resume_text: str
-
 @router.post("/download")
-async def download_resume_post(req: DownloadRequest):
-    """Download the generated resume as PDF via POST"""
+async def download_optimized_resume(request: ResumeDownloadRequest):
+    """Download the optimized resume as PDF"""
     try:
-        if not req.resume_text or not req.resume_text.strip():
-            raise HTTPException(status_code=400, detail="Resume text is empty")
+        resume_text = request.resume_text or last_generated_resume
+        
+        if not resume_text:
+            raise HTTPException(status_code=400, detail="No resume text provided")
         
         # Generate PDF
-        pdf_content = pdf_handler.generate_resume_pdf(req.resume_text)
+        pdf_content = pdf_handler.generate_resume_pdf(resume_text)
         
-        return Response(
-            content=pdf_content,
+        # Return PDF using StreamingResponse
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
             media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=optimized_resume.pdf"}
         )
@@ -82,9 +89,10 @@ async def download_resume_post(req: DownloadRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
 
+
 @router.get("/download")
-async def download_optimized_resume():
-    """Download the last generated optimized resume as PDF"""
+async def download_optimized_resume_get():
+    """Download the last generated optimized resume as PDF (GET method)"""
     try:
         if not last_generated_resume:
             raise HTTPException(status_code=400, detail="No resume to download. Please analyze first.")
@@ -92,8 +100,8 @@ async def download_optimized_resume():
         # Generate PDF
         pdf_content = pdf_handler.generate_resume_pdf(last_generated_resume)
         
-        return Response(
-            content=pdf_content,
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
             media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=optimized_resume.pdf"}
         )

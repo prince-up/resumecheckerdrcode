@@ -199,12 +199,38 @@ export default function ResultsDisplay({ data, onDownload, downloading = false }
       )}
 
       {/* Download Button - Enhanced */}
-      <div className="card" style={{ textAlign: 'center', padding: '40px', background: 'linear-gradient(135deg, var(--secondary-color)15, transparent)', borderTop: `4px solid var(--secondary-color)` }}>
+      <div className="card" style={{ 
+        textAlign: 'center', 
+        padding: '40px', 
+        background: overall_score < 5 
+          ? 'linear-gradient(135deg, #f39c1215, transparent)' 
+          : 'linear-gradient(135deg, var(--secondary-color)15, transparent)',
+        borderTop: `4px solid ${overall_score < 5 ? '#f39c12' : 'var(--secondary-color)'}`
+      }}>
+        {overall_score < 5 && (
+          <div style={{ 
+            background: 'rgba(243, 156, 18, 0.1)',
+            border: '1px solid #f39c12',
+            borderRadius: '8px',
+            padding: '16px',
+            marginBottom: '20px'
+          }}>
+            <p style={{ fontSize: '14px', color: '#f39c12', fontWeight: '600', marginBottom: '8px' }}>
+              ⚠️ Low Match Score
+            </p>
+            <p style={{ fontSize: '12px', color: '#7f8c8d', lineHeight: '1.5' }}>
+              Your resume has a low match score. The AI has generated an optimized version below that better aligns with the job description. Download and update your resume accordingly.
+            </p>
+          </div>
+        )}
+        
         <h3 style={{ fontSize: '24px', fontWeight: '700', color: 'var(--primary-color)', marginBottom: '16px' }}>
-          Ready to Apply?
+          {overall_score < 5 ? 'Download Optimized Resume' : 'Ready to Apply?'}
         </h3>
         <p style={{ fontSize: '14px', color: '#7f8c8d', marginBottom: '24px', maxWidth: '500px', margin: '0 auto 24px' }}>
-          Download your optimized resume that's tailored to this job description and ready for ATS systems.
+          {overall_score < 5 
+            ? 'This resume has been regenerated with better keywords, formatting, and ATS compatibility based on the job description.' 
+            : 'Download your optimized resume that\'s tailored to this job description and ready for ATS systems.'}
         </p>
         <button
           onClick={onDownload}
@@ -221,7 +247,9 @@ export default function ResultsDisplay({ data, onDownload, downloading = false }
           {downloading ? '⏳ Generating PDF...' : '📥 Download Optimized Resume (PDF)'}
         </button>
         <p style={{ fontSize: '12px', color: '#95a5a6' }}>
-          Your resume includes all relevant keywords and is optimized for ATS compatibility
+          {overall_score < 5 
+            ? 'This AI-generated resume is optimized for ATS systems and job description matching'
+            : 'Your resume includes all relevant keywords and is optimized for ATS compatibility'}
         </p>
       </div>
     </div>
