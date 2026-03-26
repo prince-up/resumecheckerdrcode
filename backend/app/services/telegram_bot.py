@@ -252,9 +252,8 @@ Need more help? Contact support!
             results_message = self._format_analysis_results(analysis)
             
             # Store optimized resume for later download
-            if analysis.get('optimized_resume'):
-                self.user_resumes[user_id] = analysis['optimized_resume']
-                results_message += "\n\n📥 **Download Optimized Resume:**\nSend /download to download your optimized resume as PDF!"
+            optimized = analysis.get('optimized_resume', resume_text)
+            self.user_resumes[user_id] = optimized
             
             # Split message if too long (Telegram limit is 4096 characters)
             if len(results_message) > 4000:
@@ -262,6 +261,23 @@ Need more help? Contact support!
                     await update.message.reply_text(results_message[i:i+4000])
             else:
                 await update.message.reply_text(results_message)
+                
+            # Automatically generate and send the PDF right after analysis
+            try:
+                await update.message.reply_text("⏳ Generating your optimized resume PDF...")
+                pdf_content = pdf_handler.generate_resume_pdf(optimized)
+                
+                # Send PDF file to user
+                file_obj = io.BytesIO(pdf_content)
+                file_obj.name = "optimized_resume.pdf"
+                
+                await update.message.reply_document(
+                    document=file_obj,
+                    caption="✅ Here's your optimized resume!\n\nTips:\n• Tailor it for the job description\n• Keep it to 1-2 pages\n• Use keywords from job posting"
+                )
+            except Exception as pdf_e:
+                logger.error(f"Error auto-generating PDF: {pdf_e}")
+                await update.message.reply_text("❌ Could not auto-generate PDF. Send /download to try again.")
 
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
