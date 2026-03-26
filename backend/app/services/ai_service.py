@@ -159,3 +159,69 @@ Return ONLY the optimized resume text, properly formatted with clear sections.""
             return response.text.strip()
         except Exception as e:
             raise Exception(f"Resume optimization error: {str(e)}")
+    
+    def ask_about_resume(self, resume_text: str, job_description: str, question: str) -> dict:
+        """Answer user questions about their resume in context of the job description"""
+        
+        prompt = f"""You are an expert career coach and resume consultant.
+
+A candidate has provided their resume and a job description they're interested in. 
+They have asked a question about their resume and how it relates to the job.
+
+RESUME:
+{resume_text}
+
+JOB DESCRIPTION:
+{job_description}
+
+CANDIDATE'S QUESTION:
+{question}
+
+Provide a helpful, specific, and actionable answer that:
+1. Directly addresses their question
+2. References specific parts of their resume if relevant
+3. Connects to the job requirements when applicable
+4. Is practical and implementable
+5. Is encouraging but honest
+
+Return a JSON object with this structure:
+{{
+    "answer": "Your detailed answer here",
+    "key_points": ["Point 1", "Point 2", "Point 3"],
+    "action_items": ["Action 1", "Action 2"]
+}}"""
+        
+        try:
+            response = self.model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Remove markdown code blocks if present
+            if response_text.startswith('```'):
+                response_text = response_text.replace('```json', '').replace('```', '').strip()
+            
+            # Extract JSON
+            import json
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                json_str = json_match.group()
+                if not json_str.endswith('}'):
+                    json_str = json_str + '}'
+                answer_obj = json.loads(json_str)
+            else:
+                answer_obj = json.loads(response_text)
+            
+            # Ensure all fields exist
+            answer_obj.setdefault('answer', 'Unable to provide answer')
+            answer_obj.setdefault('key_points', [])
+            answer_obj.setdefault('action_items', [])
+            
+            return answer_obj
+        
+        except Exception as e:
+            import json
+            return {
+                'answer': f'I encountered an issue processing your question: {str(e)}. Please try rephrasing it.',
+                'key_points': ['Please try asking a more specific question'],
+                'action_items': []
+            }

@@ -1,7 +1,8 @@
 import { ScoreCard, ProgressBar, Badge, Alert } from './UI';
+import QuestionForm from './QuestionForm';
 import { useState } from 'react';
 
-export default function ResultsDisplay({ data, onDownload, downloading = false }) {
+export default function ResultsDisplay({ data, onDownload, downloading = false, resumeText = '', jobDescription = '' }) {
   if (!data) return null;
 
   const {
@@ -252,6 +253,13 @@ export default function ResultsDisplay({ data, onDownload, downloading = false }
             : 'Your resume includes all relevant keywords and is optimized for ATS compatibility'}
         </p>
       </div>
+
+      {/* Q&A Section */}
+      <QuestionForm 
+        resumeText={resumeText} 
+        jobDescription={jobDescription}
+        isDisabled={!data}
+      />
     </div>
   );
 }

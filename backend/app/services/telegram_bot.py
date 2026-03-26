@@ -70,37 +70,41 @@ Then upload your resume file!
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
         help_text = """
-📋 **AI Resume Analyzer Help**
+📋 <b>AI Resume Analyzer Help</b>
 
-**Step 1: Set Job Description**
-Send: `/setjob Your job description here`
-Example: `/setjob Junior Data Scientist - Python, SQL, Pandas`
+<b>Quick Start (3 Steps):</b>
+1️⃣ /setjob Your job description
+2️⃣ Upload your resume file (PDF or TXT)
+3️⃣ /analyze to get results!
 
-**Step 2: Upload Resume**
-Send your resume as a file (PDF or TXT)
+<b>Additional Commands:</b>
+/download - Download optimized resume as PDF
+/ask <question> - Ask questions about your resume!
 
-**Step 3: Get Analysis**
-Send: `/analyze`
-The bot will return a detailed analysis!
-
-**What you get:**
+<b>What You Get:</b>
 ✅ Overall Match Score (0-10)
 ✅ Matching Skills List
 ✅ Missing Keywords
 ✅ Experience Alignment
 ✅ ATS Compatibility Score
-✅ Strengths
-✅ Areas to Improve
+✅ Strengths & Areas to Improve
 ✅ Optimization Suggestions
 
-**Tips:**
-- Be specific with job descriptions
-- Upload clear, well-formatted resumes
-- Use /setjob before uploading resume
+<b>Example Usage:</b>
+/setjob Senior Python Developer with FastAPI
+(Upload resume file)
+/analyze
+/ask Should I highlight Docker experience more?
+/ask How well does my resume match this role?
 
-Need more help? Contact support!
+<b>Tips:</b>
+• Be specific with job descriptions
+• Use clear, well-formatted resumes
+• Ask any CV-related questions!
+
+Need help? Contact support!
         """
-        await update.message.reply_text(help_text)
+        await update.message.reply_text(help_text, parse_mode='HTML')
 
     async def set_job(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /setjob command"""
@@ -396,6 +400,96 @@ Need more help? Contact support!
             logger.error(f"Error in download: {e}")
             await update.message.reply_text("❌ Error downloading resume. Please try again.")
 
+    async def ask_question(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Answer questions about resume in context of job"""
+        user_id = update.effective_user.id
+        
+        # Extract question from command
+        if not context.args:
+            await update.message.reply_text(
+                "📚 <b>Ask Me Anything About Your Resume!</b>\n\n"
+                "Usage: <code>/ask Your question here</code>\n\n"
+                "Example Questions:\n"
+                "• /ask Should I add more technical skills?\n"
+                "• /ask How well does my experience match?\n"
+                "• /ask What keywords should I highlight?\n"
+                "• /ask How can I improve my skills section?\n\n"
+                "<b>Requirements:</b>\n"
+                "✓ Job description set (/setjob)\n"
+                "✓ Resume uploaded\n"
+                "✓ Analysis completed (/analyze)",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Check prerequisites
+        if user_id not in self.user_jobs:
+            await update.message.reply_text("❌ Please set a job description first using /setjob")
+            return
+        
+        if user_id not in self.user_files:
+            await update.message.reply_text("❌ Please upload your resume first!")
+            return
+        
+        if user_id not in self.user_resumes:
+            await update.message.reply_text("❌ Please run /analyze first to get context!")
+            return
+        
+        # Get question text
+        question = " ".join(context.args)
+        
+        await update.message.reply_text("🤔 Analyzing your question... Please wait...")
+        
+        try:
+            # Get data
+            job_desc = self.user_jobs[user_id]
+            file_data = self.user_files[user_id]
+            
+            # Extract resume text
+            if 'pdf' in file_data['mime_type'].lower():
+                try:
+                    from app.utils.pdf_handler import extract_text_from_pdf
+                    resume_text = extract_text_from_pdf(file_data['content'])
+                except:
+                    # Use optimized resume from analysis
+                    resume_text = self.user_resumes[user_id]
+            else:
+                resume_text = file_data['content'].decode('utf-8')
+            
+            # Ask AI
+            response = ai_analyzer.ask_about_resume(resume_text, job_desc, question)
+            
+            # Format answer
+            msg = "<b>💡 AI Answer</b>\n\n"
+            msg += f"<b>Question:</b> {question}\n\n"
+            msg += f"<b>Answer:</b>\n{response.get('answer', 'Unable to answer')}\n\n"
+            
+            # Key points
+            if response.get('key_points'):
+                msg += "<b>Key Points:</b>\n"
+                for point in response['key_points'][:3]:
+                    msg += f"• {point}\n"
+                msg += "\n"
+            
+            # Action items
+            if response.get('action_items'):
+                msg += "<b>What You Can Do:</b>\n"
+                for item in response['action_items'][:3]:
+                    msg += f"✓ {item}\n"
+            
+            await update.message.reply_text(msg, parse_mode='HTML')
+            logger.info(f"Question answered for user {user_id}: {question[:50]}")
+            
+        except Exception as e:
+            logger.error(f"Error answering question: {e}", exc_info=True)
+            await update.message.reply_text(
+                f"❌ Error processing your question.\n\n"
+                f"Please try:\n"
+                f"• Rephrasing your question\n"
+                f"• Checking your internet connection\n"
+                f"• Running /analyze again"
+            )
+
     def _format_analysis_results(self, analysis: dict) -> str:
         """Format analysis results for Telegram (HTML format)"""
         try:
@@ -482,6 +576,7 @@ Need more help? Contact support!
         self.app.add_handler(CommandHandler("setjobfile", self.set_job_file))
         self.app.add_handler(CommandHandler("analyze", self.analyze_resume))
         self.app.add_handler(CommandHandler("download", self.download_resume))
+        self.app.add_handler(CommandHandler("ask", self.ask_question))
         self.app.add_handler(MessageHandler(filters.Document.ALL, self.handle_document))
 
         # Error handler

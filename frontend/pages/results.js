@@ -9,6 +9,8 @@ import { downloadResume } from '../utils/api';
 
 export default function Results() {
   const [analysisData, setAnalysisData] = useState(null);
+  const [resumeText, setResumeText] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
@@ -16,11 +18,15 @@ export default function Results() {
   useEffect(() => {
     // Retrieve analysis results from session storage
     const storedResults = sessionStorage.getItem('analysisResults');
+    const storedResumeText = sessionStorage.getItem('resumeText');
+    const storedJobDescription = sessionStorage.getItem('jobDescription');
     
     if (storedResults) {
       try {
         const data = JSON.parse(storedResults);
         setAnalysisData(data);
+        setResumeText(storedResumeText || '');
+        setJobDescription(storedJobDescription || '');
       } catch (err) {
         setError('Failed to load analysis results');
       }
@@ -107,6 +113,8 @@ export default function Results() {
           <ResultsDisplay 
             data={analysisData} 
             onDownload={handleDownload}
+            resumeText={resumeText}
+            jobDescription={jobDescription}
           />
 
           {downloading && (

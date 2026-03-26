@@ -16,8 +16,36 @@ export default function Home() {
       setError('');
       const results = await analyzeResume(formData);
       
-      // Store results in session storage for results page
+      // Extract resume and job description text from formData
+      let resumeText = '';
+      let jobDescription = '';
+      
+      // Try to read resume file
+      if (formData.has('resume_file')) {
+        const resumeFile = formData.get('resume_file');
+        try {
+          resumeText = await resumeFile.text();
+        } catch (err) {
+          console.warn('Could not read resume file:', err);
+        }
+      }
+      
+      // Get job description from formData
+      if (formData.has('job_description')) {
+        jobDescription = formData.get('job_description');
+      } else if (formData.has('job_file')) {
+        const jobFile = formData.get('job_file');
+        try {
+          jobDescription = await jobFile.text();
+        } catch (err) {
+          console.warn('Could not read job file:', err);
+        }
+      }
+      
+      // Store results and context in session storage for results page
       sessionStorage.setItem('analysisResults', JSON.stringify(results));
+      sessionStorage.setItem('resumeText', resumeText);
+      sessionStorage.setItem('jobDescription', jobDescription);
       
       // Redirect to results page
       router.push('/results');
