@@ -8,3 +8,4 @@
 
  ✓ Starting...
  ✓ Ready in 2.1s
+^C^C
