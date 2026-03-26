@@ -1,7 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from app.services.ai_service import AIResumeAnalyzer
 from app.utils.pdf_handler import PDFHandler
+from pydantic import BaseModel
 import io
 import json
 
@@ -58,6 +59,29 @@ async def analyze_resume(
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 
+class DownloadRequest(BaseModel):
+    resume_text: str
+
+@router.post("/download")
+async def download_resume_post(req: DownloadRequest):
+    """Download the generated resume as PDF via POST"""
+    try:
+        if not req.resume_text or not req.resume_text.strip():
+            raise HTTPException(status_code=400, detail="Resume text is empty")
+        
+        # Generate PDF
+        pdf_content = pdf_handler.generate_resume_pdf(req.resume_text)
+        
+        return Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=optimized_resume.pdf"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
+
 @router.get("/download")
 async def download_optimized_resume():
     """Download the last generated optimized resume as PDF"""
@@ -68,8 +92,8 @@ async def download_optimized_resume():
         # Generate PDF
         pdf_content = pdf_handler.generate_resume_pdf(last_generated_resume)
         
-        return FileResponse(
-            io.BytesIO(pdf_content),
+        return Response(
+            content=pdf_content,
             media_type="application/pdf",
             headers={"Content-Disposition": "attachment; filename=optimized_resume.pdf"}
         )
