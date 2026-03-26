@@ -268,7 +268,7 @@ Need more help? Contact support!
     async def main(self):
         """Start the bot"""
         if not self.token:
-            logger.error("TELEGRAM_BOT_TOKEN not set in .env")
+            logger.error("❌ TELEGRAM_BOT_TOKEN not set in .env")
             return
 
         # Create application
@@ -284,16 +284,16 @@ Need more help? Contact support!
         # Error handler
         self.app.add_error_handler(self._error_handler)
 
-        # Start bot
-        await self.app.initialize()
-        await self.app.start()
-        await self.app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-
-        logger.info("✅ Telegram Bot started successfully!")
-        logger.info("Bot is polling for updates...")
-
-        # Keep running
-        await self.app.updater.idle()
+        logger.info("🤖 Telegram Bot Initialized")
+        logger.info("✅ Bot started successfully!")
+        logger.info("🔄 Bot is polling for updates...")
+        
+        # Run polling
+        try:
+            await self.app.run_polling(allowed_updates=Update.ALL_TYPES)
+        except Exception as e:
+            logger.error(f"❌ Bot error: {e}", exc_info=True)
+            raise
 
     async def _error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors"""
@@ -301,6 +301,32 @@ Need more help? Contact support!
 
 
 async def start_telegram_bot():
-    """Start the Telegram bot"""
-    bot = TelegramResumeBot(settings.TELEGRAM_BOT_TOKEN)
-    await bot.main()
+    """Start the Telegram bot - Simple version"""
+    token = settings.TELEGRAM_BOT_TOKEN
+    
+    if not token:
+        logger.error("TELEGRAM_BOT_TOKEN not set in .env")
+        return
+    
+    logger.info("🤖 Starting Telegram Bot...")
+    logger.info(f"Token: {token[:20]}...")
+    
+    # Create application
+    app = Application.builder().token(token).build()
+    
+    # Initialize bot instance
+    bot = TelegramResumeBot(token)
+    
+    # Add handlers
+    app.add_handler(CommandHandler("start", bot.start))
+    app.add_handler(CommandHandler("help", bot.help_command))
+    app.add_handler(CommandHandler("setjob", bot.set_job))
+    app.add_handler(CommandHandler("analyze", bot.analyze_resume))
+    app.add_handler(MessageHandler(filters.Document.ALL, bot.handle_document))
+    app.add_error_handler(bot._error_handler)
+    
+    logger.info("✅ Telegram Bot initialized successfully!")
+    logger.info("🔄 Bot is polling for updates...")
+    
+    # Run the bot
+    await app.run_polling(allowed_updates=Update.ALL_TYPES)
