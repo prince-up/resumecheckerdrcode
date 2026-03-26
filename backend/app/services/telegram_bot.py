@@ -176,9 +176,8 @@ Need more help? Contact support!
             try:
                 if 'pdf' in file_data['mime_type'].lower():
                     # For PDF files - robust extraction with multiple fallbacks
-                    pdf_bytes = io.BytesIO(file_data['content'])
                     try:
-                        resume_text = pdf_handler.extract_text_from_pdf(pdf_bytes)
+                        resume_text = pdf_handler.extract_text_from_pdf(file_data['content'])
                     except Exception as pdf_error:
                         logger.warning(f"PDF extraction failed: {pdf_error}")
                         # Check if PDF is corrupted or scanned
