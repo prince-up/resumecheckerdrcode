@@ -8,9 +8,9 @@ import uvicorn
 from app.main import app
 
 if __name__ == "__main__":
-    print("🚀 Starting AI Resume Analyzer Backend...")
-    print("📍 Server will run on http://0.0.0.0:8000")
-    print("📚 API Docs available at http://localhost:8000/docs")
+    print("Starting AI Resume Analyzer Backend...")
+    print("Server will run on http://0.0.0.0:8000")
+    print("API Docs available at http://localhost:8000/docs")
     print()
     
     uvicorn.run(

@@ -175,28 +175,63 @@ Need more help? Contact support!
             # Extract text from file - handle both PDF and text
             try:
                 if 'pdf' in file_data['mime_type'].lower():
-                    # For PDF files
+                    # For PDF files - robust extraction with multiple fallbacks
                     pdf_bytes = io.BytesIO(file_data['content'])
-                    resume_text = pdf_handler.extract_text_from_pdf(pdf_bytes)
+                    try:
+                        resume_text = pdf_handler.extract_text_from_pdf(pdf_bytes)
+                    except Exception as pdf_error:
+                        logger.warning(f"PDF extraction failed: {pdf_error}")
+                        # Check if PDF is corrupted or scanned
+                        if len(file_data['content']) < 100:
+                            raise ValueError("PDF file appears to be corrupted or empty")
+                        # Try to extract with fallback
+                        resume_text = ""
+                    
+                    # Validate PDF extraction
+                    if not resume_text or len(resume_text.strip()) < 10:
+                        await update.message.reply_text(
+                            "❌ Could not extract text from PDF.\n\n"
+                            "This might be because:\n"
+                            "• PDF is an image/scanned document (OCR required)\n"
+                            "• PDF is corrupted or encrypted\n\n"
+                            "✅ **Solution: Convert to TXT**\n"
+                            "1. Open your PDF with Acrobat/Word\n"
+                            "2. Select all text (Ctrl+A)\n"
+                            "3. Copy (Ctrl+C)\n"
+                            "4. Paste into Notepad\n"
+                            "5. Save as resume.txt\n"
+                            "6. Upload the TXT file\n\n"
+                            "Send /analyze after uploading the TXT file!"
+                        )
+                        return
                 else:
                     # For text files
                     resume_text = file_data['content'].decode('utf-8', errors='ignore')
                 
-                # Check if text was extracted
+                # Final validation
                 if not resume_text or len(resume_text.strip()) < 10:
                     await update.message.reply_text(
-                        "❌ Could not extract text from resume. Please try a TXT file instead."
+                        "❌ No text content found in file. File might be empty or unreadable.\n\n"
+                        "Please check:\n"
+                        "• File is not empty\n"
+                        "• File is properly formatted\n"
+                        "• Try uploading a different file"
                     )
                     return
                     
             except Exception as e:
                 logger.error(f"Error extracting text: {e}")
                 await update.message.reply_text(
-                    "❌ Error reading resume file. Try uploading as TXT format:\n"
-                    "1. Open your resume PDF\n"
-                    "2. Copy all text\n"
-                    "3. Save as .txt file\n"
-                    "4. Upload the .txt file"
+                    "❌ Error reading resume file.\n\n"
+                    "**Recommended Solution:**\n"
+                    "1. Open your resume in any PDF reader\n"
+                    "2. Select all text (Ctrl+A)\n"
+                    "3. Copy (Ctrl+C)\n"
+                    "4. Open Notepad\n"
+                    "5. Paste the text (Ctrl+V)\n"
+                    "6. Save as resume.txt\n"
+                    "7. Upload the txt file here\n\n"
+                    "Then send /analyze again!"
                 )
                 return
 
