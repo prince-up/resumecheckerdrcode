@@ -295,26 +295,33 @@ Need more help? Contact support!
             # Split message if too long (Telegram limit is 4096 characters)
             if len(results_message) > 4000:
                 for i in range(0, len(results_message), 4000):
-                    await update.message.reply_text(results_message[i:i+4000])
+                    await update.message.reply_text(results_message[i:i+4000], parse_mode='HTML')
             else:
-                await update.message.reply_text(results_message)
+                await update.message.reply_text(results_message, parse_mode='HTML')
             
             # Send download instruction as SEPARATE message with emphasis
-            await update.message.reply_text(
-                "━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                "📥 **DOWNLOAD YOUR RESUME**\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                "Send /download to get your optimized resume as PDF!\n\n"
-                "✨ The AI has improved:\n"
-                "• Keywords matching\n"
-                "• ATS compatibility\n"
-                "• Formatting\n\n"
-                "Ready? → Send /download"
-            )
+            try:
+                await update.message.reply_text(
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "📥 <b>DOWNLOAD YOUR RESUME</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "Send /download to get your optimized resume as PDF!\n\n"
+                    "✨ The AI has improved:\n"
+                    "• Keywords matching\n"
+                    "• ATS compatibility\n"
+                    "• Formatting\n\n"
+                    "<b>Ready? → Send /download</b>",
+                    parse_mode='HTML'
+                )
+                logger.info(f"Download instruction message sent to user {user_id}")
+            except Exception as msg_e:
+                logger.error(f"Error sending download instruction: {msg_e}")
                 
             # Try to automatically generate and send PDF
             try:
+                logger.info(f"Generating PDF for user {user_id}...")
                 pdf_content = pdf_handler.generate_resume_pdf(optimized)
+                logger.info(f"PDF generated successfully, size: {len(pdf_content)} bytes")
                 
                 # Create BytesIO and send
                 file_obj = io.BytesIO(pdf_content)
@@ -326,12 +333,15 @@ Need more help? Contact support!
                 )
                 logger.info(f"PDF sent successfully to user {user_id}")
             except Exception as pdf_e:
-                logger.error(f"PDF auto-generation failed: {pdf_e}")
+                logger.error(f"PDF auto-generation failed: {pdf_e}", exc_info=True)
                 # If auto-PDF fails, just remind about manual download
-                await update.message.reply_text(
-                    f"⚠️ PDF auto-generation issue.\n\n"
-                    f"No problem! Just send /download and the bot will create your PDF."
-                )
+                try:
+                    await update.message.reply_text(
+                        "⚠️ PDF auto-generation encountered an issue.\n\n"
+                        "No problem! Just send /download and the bot will create your PDF."
+                    )
+                except Exception as err_msg_e:
+                    logger.error(f"Error sending fallback message: {err_msg_e}")
 
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
@@ -387,14 +397,14 @@ Need more help? Contact support!
             await update.message.reply_text("❌ Error downloading resume. Please try again.")
 
     def _format_analysis_results(self, analysis: dict) -> str:
-        """Format analysis results for Telegram"""
+        """Format analysis results for Telegram (HTML format)"""
         try:
             logger.info(f"Analysis data received: {list(analysis.keys())}")
             
-            msg = "📊 **AI Resume Analysis Results**\n\n"
+            msg = "<b>📊 AI Resume Analysis Results</b>\n\n"
 
             # Scores - Handle both key variations
-            msg += "📈 **Scores:**\n"
+            msg += "<b>📈 Scores:</b>\n"
             overall = analysis.get('overall_score', 0)
             msg += f"• Overall Match: {overall}/10 {'🟢' if overall >= 7 else '🟡' if overall >= 4 else '🔴'}\n"
             msg += f"• Skills Match: {analysis.get('skill_score') or analysis.get('skills_score', 0)}/10\n"
@@ -404,7 +414,7 @@ Need more help? Contact support!
 
             # Matching Skills
             if analysis.get('matching_skills'):
-                msg += "✅ **Matching Skills:**\n"
+                msg += "<b>✅ Matching Skills:</b>\n"
                 skills = analysis['matching_skills']
                 if isinstance(skills, list):
                     for skill in skills[:5]:
@@ -413,7 +423,7 @@ Need more help? Contact support!
 
             # Missing Keywords
             if analysis.get('missing_keywords'):
-                msg += "⚠️ **Missing Keywords:**\n"
+                msg += "<b>⚠️ Missing Keywords:</b>\n"
                 keywords = analysis['missing_keywords']
                 if isinstance(keywords, list):
                     for keyword in keywords[:5]:
@@ -422,7 +432,7 @@ Need more help? Contact support!
 
             # Strengths
             if analysis.get('strengths'):
-                msg += "💪 **Your Strengths:**\n"
+                msg += "<b>💪 Your Strengths:</b>\n"
                 strengths = analysis['strengths']
                 if isinstance(strengths, list):
                     for strength in strengths[:3]:
@@ -431,7 +441,7 @@ Need more help? Contact support!
 
             # Weaknesses
             if analysis.get('weaknesses'):
-                msg += "⚡ **Areas to Improve:**\n"
+                msg += "<b>⚡ Areas to Improve:</b>\n"
                 weaknesses = analysis['weaknesses']
                 if isinstance(weaknesses, list):
                     for weakness in weaknesses[:3]:
@@ -440,13 +450,13 @@ Need more help? Contact support!
 
             # Suggestions
             if analysis.get('improvement_suggestions'):
-                msg += "💡 **Improvement Suggestions:**\n"
+                msg += "<b>💡 Improvement Suggestions:</b>\n"
                 suggestions = analysis['improvement_suggestions']
                 if isinstance(suggestions, list):
                     for suggestion in suggestions[:3]:
                         msg += f"• {suggestion}\n"
 
-            msg += "\n\n📥 **Download Optimized Resume:**\nSend /download to download your optimized resume as PDF!"
+            msg += "\n\n<b>📥 Download Optimized Resume:</b>\nSend /download to download your optimized resume as PDF!"
 
             return msg
 
